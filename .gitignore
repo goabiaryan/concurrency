@@ -1,0 +1,8 @@
+results/
+run.md
+__pycache__/
+*.pyc
+.Python
+.venv/
+venv/
+.env

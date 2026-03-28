@@ -1,0 +1,59 @@
+# Standard burst: 20 replicas, tiered prompts, optional client-side “chaos”, 3 waves.
+suite_name: standard_burst
+image: stress-vllm:local
+build_dockerfile: Dockerfile.vllm
+
+model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+served_model_name: tinyllama
+dtype: float16
+quantization: null
+vllm_extra_args: []
+
+# Tag artifacts (A100, L40S, etc.) — appears in summary.json and Docker labels
+run_labels:
+  gpu_sku: unspecified
+  profile: standard_burst
+
+# Client-side latency / flaky simulation (not kernel packet loss). Set all probs to 0 to disable.
+network_chaos:
+  extra_latency_ms: [0, 40]
+  connection_abort_probability: 0.015
+  request_drop_probability: 0.01
+
+containers:
+  count: 20
+  base_host_port: 8100
+  shm_size_gb: 2
+  num_gpus: null
+  parallel_start: true
+
+scenarios:
+  warmup:
+    requests_per_container: 2
+    max_output_tokens: 64
+    gap_between_requests_ms: 50
+  waves:
+    count: 3
+    gap_seconds: 8
+    concurrent_per_container: 6
+    requests_per_container_per_wave: 10
+    jitter_ms: [0, 400]
+    prompt_token_est_range: [50, 1200]
+    output_token_range: [20, 400]
+    prompt_token_tiers:
+      - { name: short, weight: 0.45, min: 50, max: 300 }
+      - { name: medium, weight: 0.40, min: 300, max: 1000 }
+      - { name: long, weight: 0.15, min: 1000, max: 2200 }
+  sustained:
+    enabled: false
+    duration_seconds: 120
+    rps_per_container: 2.0
+
+timeouts:
+  container_ready_seconds: 1200
+  request_seconds: 240
+
+prometheus_scrape_timeout_seconds: 30
+gpu_sample_interval_seconds: 2
+docker_events: true
+output_dir: ./results/standard_burst

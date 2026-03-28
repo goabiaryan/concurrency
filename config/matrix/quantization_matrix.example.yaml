@@ -1,0 +1,25 @@
+# Example matrix: run the same base profile with different quantization flags.
+# Copy and edit variants for your real AWQ/GPTQ checkpoints before running.
+#
+#   python -m stress_suite.matrix_runner --matrix config/matrix/quantization_matrix.example.yaml
+
+base_config: ../examples/max_stress.yaml
+
+variants:
+  - label: max_fp16
+    overrides:
+      quantization: null
+      dtype: float16
+      output_dir: ./results/matrix_fp16
+      run_labels:
+        gpu_sku: unspecified
+        quant: fp16
+
+  # Uncomment when you have a matching quantized model on the Hub:
+  # - label: max_awq
+  #   overrides:
+  #     quantization: awq
+  #     model: your-org/TinyLlama-1.1B-AWQ
+  #     output_dir: ./results/matrix_awq
+  #     run_labels:
+  #       quant: awq

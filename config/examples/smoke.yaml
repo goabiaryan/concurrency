@@ -1,0 +1,53 @@
+# Quick sanity check: few containers, light load.
+suite_name: smoke
+# Built locally from Dockerfile.vllm; override to e.g. vllm/vllm-openai:v0.7.3 for pull-only.
+image: stress-vllm:local
+build_dockerfile: Dockerfile.vllm
+
+model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+served_model_name: tinyllama
+dtype: float16
+quantization: null
+vllm_extra_args: []
+
+run_labels:
+  gpu_sku: unspecified
+  profile: smoke
+
+network_chaos: null
+
+containers:
+  count: 1
+  base_host_port: 8100
+  shm_size_gb: 2
+  num_gpus: null
+  parallel_start: false
+
+scenarios:
+  warmup:
+    requests_per_container: 1
+    max_output_tokens: 32
+    gap_between_requests_ms: 0
+  waves:
+    count: 1
+    gap_seconds: 2
+    concurrent_per_container: 1
+    requests_per_container_per_wave: 2
+    jitter_ms: [0, 100]
+    prompt_token_est_range: [32, 128]
+    output_token_range: [16, 64]
+  sustained:
+    enabled: false
+    duration_seconds: 60
+    rps_per_container: 1.0
+
+timeouts:
+  container_ready_seconds: 900
+  request_seconds: 180
+
+# How long to wait for each replica GET /metrics during span snapshots
+prometheus_scrape_timeout_seconds: 30
+
+gpu_sample_interval_seconds: 2
+docker_events: true
+output_dir: ./results/smoke
