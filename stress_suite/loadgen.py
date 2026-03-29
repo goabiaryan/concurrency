@@ -146,7 +146,6 @@ async def streaming_chat_completion(
     decode_s = max(0.0, total_s - ttft_s)
     ok = err is None and bool(text)
     out_per_s = (out_tok / total_s) if total_s > 0 else 0.0
-    # Prefill vs decode (proxy): TTFT ~ prefill+queue; remainder ~ decode
     prefill_proxy_s = ttft_s
     decode_phase_s = decode_s
     return {

@@ -1,5 +1,3 @@
-"""Run multiple merged configs sequentially (e.g. quantization / GPU SKU matrix)."""
-
 from __future__ import annotations
 
 import argparse

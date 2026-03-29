@@ -1,5 +1,3 @@
-"""Synthetic prompts: chat-style, completion-style, light reasoning flavor."""
-
 from __future__ import annotations
 
 import random

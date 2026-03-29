@@ -1,5 +1,3 @@
-"""Aggregate request logs and write summary JSON."""
-
 from __future__ import annotations
 
 import json

@@ -1,5 +1,3 @@
-"""Classify client-side errors for aggregation."""
-
 from __future__ import annotations
 
 

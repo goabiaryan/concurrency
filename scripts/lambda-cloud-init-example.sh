@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Example Verda "Startup script" — runs once at first boot as root (typical cloud-init).
-# Customize: image pull, git clone, GPU driver packages if Verda does not preinstall them.
+# Example Lambda "Startup script" — runs once at first boot as root (typical cloud-init).
+# Customize: image pull, git clone, GPU driver packages if Lambda does not preinstall them.
 set -euo pipefail
 
-LOG=/var/log/verda-bootstrap.log
+LOG=/var/log/lambda-bootstrap.log
 exec > >(tee -a "$LOG") 2>&1
 
-echo "=== verda-bootstrap start $(date -Iseconds) ==="
+echo "=== lambda-bootstrap start $(date -Iseconds) ==="
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
@@ -23,4 +23,4 @@ systemctl start docker
 # Optional: add user to docker group if you SSH as non-root (uncomment and set USER)
 # usermod -aG docker ubuntu
 
-echo "=== verda-bootstrap done $(date -Iseconds) ==="
+echo "=== lambda-bootstrap done $(date -Iseconds) ==="

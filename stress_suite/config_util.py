@@ -1,5 +1,3 @@
-"""Deep-merge YAML overrides and CLI patches."""
-
 from __future__ import annotations
 
 import copy

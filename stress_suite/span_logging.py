@@ -1,5 +1,3 @@
-"""Per-span disk + console logging: custom harness metrics and vLLM Prometheus scrape."""
-
 from __future__ import annotations
 
 import json
@@ -201,7 +199,6 @@ async def flush_span(
         if err:
             snapshot_lines.append(f"error: {err}")
         elif text:
-            # keep console snapshot smaller: vllm lines only
             vl = [
                 ln
                 for ln in text.splitlines()

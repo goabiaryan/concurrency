@@ -1,5 +1,3 @@
-"""Start/stop inference containers with per-replica GPU pinning."""
-
 from __future__ import annotations
 
 import logging
@@ -127,10 +125,10 @@ class InferenceFleet:
         for c in reversed(self.containers):
             try:
                 c.stop(timeout=15)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:  
                 log.warning("stop %s: %s", c.name, e)
             try:
                 c.remove()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e: 
                 log.warning("remove %s: %s", c.name, e)
         self.containers.clear()

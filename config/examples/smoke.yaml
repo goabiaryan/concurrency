@@ -1,6 +1,4 @@
-# Quick sanity check: few containers, light load.
 suite_name: smoke
-# Built locally from Dockerfile.vllm; override to e.g. vllm/vllm-openai:v0.7.3 for pull-only.
 image: stress-vllm:local
 build_dockerfile: Dockerfile.vllm
 

@@ -1,5 +1,3 @@
-"""Compare two summary.json files (baseline vs stressed run)."""
-
 from __future__ import annotations
 
 import argparse

@@ -1,5 +1,3 @@
-"""Capture Docker container lifecycle events for stress replicas (restarts, die, oom)."""
-
 from __future__ import annotations
 
 import json

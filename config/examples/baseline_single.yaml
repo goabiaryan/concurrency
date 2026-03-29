@@ -1,4 +1,3 @@
-# Baseline: one replica, light waves — compare against max_stress via compare_runs.py
 suite_name: baseline_single
 image: stress-vllm:local
 build_dockerfile: Dockerfile.vllm

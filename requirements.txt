@@ -1,4 +1,4 @@
-# Host-side test orchestrator (run on Verda VM with Docker + NVIDIA)
+# Host-side test orchestrator (run on Lambda VM with Docker + NVIDIA)
 httpx[http2]>=0.27,<1
 pyyaml>=6,<7
 pandas>=2,<3

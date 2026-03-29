@@ -1,9 +1,8 @@
-"""CLI orchestrator: build/start replicas, run scenarios, write CSV/JSON."""
-
 from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import logging
 import random
@@ -21,8 +20,10 @@ import pandas as pd
 import yaml
 
 from stress_suite import loadgen, metrics, span_logging
+from stress_suite.console_capture import ConsoleCapture
 from stress_suite.config_util import apply_cli_overrides
 from stress_suite.docker_events import DockerEventWatcher
+from stress_suite import docker_logs
 from stress_suite.docker_mgr import InferenceFleet, detect_gpu_count
 from stress_suite.gpu_sampler import start_gpu_sampler
 
@@ -82,7 +83,9 @@ async def run_suite(cfg: dict[str, Any], skip_build: bool) -> int:
     out.mkdir(parents=True, exist_ok=True)
     run_ts = span_logging.utc_slug()
     log_run_dir = out / "logs" / f"run_{run_ts}"
+    log_run_dir.mkdir(parents=True, exist_ok=True)
     fh: logging.FileHandler | None = None
+    capture: ConsoleCapture | None = None
     spans_written: list[str] = []
     prom_timeout = float(cfg.get("prometheus_scrape_timeout_seconds") or 30.0)
     global_chaos = cfg.get("network_chaos") or None
@@ -93,6 +96,7 @@ async def run_suite(cfg: dict[str, Any], skip_build: bool) -> int:
         "suite_name": cfg.get("suite_name"),
         "started_unix": time.time(),
         "logs_run": str(log_run_dir.relative_to(out)),
+        "console_transcript": str((log_run_dir / "console.txt").relative_to(out)),
         "gpu_inventory": gpu_inv,
         "config": cfg,
     }
@@ -101,7 +105,15 @@ async def run_suite(cfg: dict[str, Any], skip_build: bool) -> int:
         fh = span_logging.setup_run_file_log(log_run_dir)
     except OSError as e:
         log.warning("Could not create orchestrator.log: %s", e)
-    log.info("Run logs -> %s (orchestrator.log + spans/)", log_run_dir)
+        fh = None
+    try:
+        capture = ConsoleCapture.start(log_run_dir)
+    except OSError as e:
+        log.warning("Could not start console.txt transcript: %s", e)
+    log.info(
+        "Run logs -> %s (orchestrator.log, console.txt, spans/, docker_logs/ if replicas fail readiness)",
+        log_run_dir,
+    )
 
     fleet = InferenceFleet(cfg)
     watcher: DockerEventWatcher | None = None
@@ -164,12 +176,44 @@ async def run_suite(cfg: dict[str, Any], skip_build: bool) -> int:
                     "ready_wait_s": time.perf_counter() - t0,
                 }
 
-            cold_rows = list(
-                await asyncio.gather(*[measure_ready(i, endpoints[i]) for i in range(n)])
+            log.info(
+                "Waiting for %s replicas: each must answer /v1/models or /health "
+                "(timeout %ss per replica; wall time ~= slowest replica)",
+                n,
+                int(ready_timeout),
             )
+
+            async def _ready_heartbeat() -> None:
+                t0 = time.monotonic()
+                try:
+                    while True:
+                        await asyncio.sleep(45)
+                        log.info(
+                            "Still in cold start (%.0fs elapsed, per-replica timeout %ss)",
+                            time.monotonic() - t0,
+                            int(ready_timeout),
+                        )
+                except asyncio.CancelledError:
+                    return
+
+            hb = asyncio.create_task(_ready_heartbeat())
+            try:
+                cold_rows = list(
+                    await asyncio.gather(
+                        *[measure_ready(i, endpoints[i]) for i in range(n)]
+                    )
+                )
+            finally:
+                hb.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await hb
             for row in cold_rows:
                 row["batch_launch_window_s"] = t_launch1 - t_launch0
             pd.DataFrame(cold_rows).to_csv(out / "cold_start.csv", index=False)
+
+            await docker_logs.capture_not_ready_after_cold_start(
+                fleet, cold_rows, log_run_dir, cfg
+            )
 
             ready_pairs = [(r["container_id"], r["endpoint"]) for r in cold_rows if r["ready_ok"]]
             id_to_ep = {cid: ep for cid, ep in ready_pairs}
@@ -362,7 +406,11 @@ async def run_suite(cfg: dict[str, Any], skip_build: bool) -> int:
         metrics.write_summary(out / "summary.json", summary)
         shutil.copy2(out / "summary.json", log_run_dir / "summary.json")
         meta["finished_unix"] = summary["finished_unix"]
-        meta["summary_paths"] = {"summary_json": "summary.json", "requests_csv": "requests.csv"}
+        meta["summary_paths"] = {
+            "summary_json": "summary.json",
+            "requests_csv": "requests.csv",
+            "console_txt": meta.get("console_transcript"),
+        }
         (out / "run_meta.json").write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
         log.info("Wrote %s", out.resolve())
         print(json.dumps(summary, indent=2, default=str))
@@ -381,9 +429,18 @@ async def run_suite(cfg: dict[str, Any], skip_build: bool) -> int:
             pass
         if fh is not None:
             span_logging.teardown_run_file_log(fh)
+        if capture is not None:
+            try:
+                capture.stop()
+            except Exception:  # noqa: BLE001
+                pass
         stop_gpu.set()
         if gpu_thread is not None:
             gpu_thread.join(timeout=5)
+        try:
+            docker_logs.capture_all_at_end_before_stop(fleet, log_run_dir, cfg)
+        except Exception:  # noqa: BLE001
+            log.exception("capture_all_at_end docker logs failed")
         fleet.stop_all()
 
     return exit_code
