@@ -144,7 +144,7 @@ Either clone with git:
 
 ```bash
 sudo apt-get install -y git
-git clone <YOUR_REPO_URL> test-lambda
+git clone https://github.com/goabiaryan/concurrency.git test-lambda
 cd test-lambda
 ```
 
@@ -154,12 +154,24 @@ Or `scp` / upload a zip from your laptop into `~/test-lambda` and `cd` there.
 
 ## 7. Python environment and stress harness dependencies
 
+Minimal Ubuntu images (including many **24.04** cloud images) ship without **`venv` / `ensurepip`**. Install that **before** `python3 -m venv`; otherwise venv creation fails and a bare **`pip install`** hits **PEP 668** (*externally-managed-environment*).
+
 ```bash
 cd ~/test-lambda
+sudo apt-get update
+sudo apt-get install -y python3-venv
+```
+
+If `apt` suggests a versioned package (e.g. **`python3.12-venv`**), use that name instead.
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -U pip
 pip install -r requirements.txt
 ```
+
+If **`source .venv/bin/activate`** fails, remove the broken tree and recreate after installing **`python3-venv`**: `rm -rf .venv` then run `python3 -m venv .venv` again.
 
 If Hugging Face blocks the model download, set a token for the shell session:
 
